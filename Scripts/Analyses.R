@@ -44,11 +44,36 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
   foodGroups_data = foodGroups_data[, !names(foodGroups_data) %in% unwanted_columns_fg]
 }
 
+#PCA preparation
+{
+  #PCA Nutrients
+  nutrients_components = prcomp(nutrients_data[,-1], scale. = TRUE)
+  fviz_eig(nutrients_components)
+  #nutrient_values = nutrients_components$rotation
+  pca_nutrients <- as.data.frame(nutrients_components$x)
+  nutrients_pca_data = data.frame(ID = nutrients_data$ID, 
+                                  PC_nutri_1 = pca_nutrients$PC1,
+                                  PC_nutri_2 =pca_nutrients$PC2,
+                                  PC_nutri_3 =pca_nutrients$PC3)
+  
+  #PCA Food groups (sin HEI y SCORE GABAS)
+  fg_components = prcomp(foodGroups_data[,2:12], scale. = TRUE)
+  fviz_eig(fg_components)
+  #fg_rotations = fg_components$rotation
+  pca_fg = as.data.frame(fg_components$x)
+  fg_pca_data = data.frame(ID = foodGroups_data$ID,
+                           PC_fg_1 = pca_fg$PC1,
+                           PC_fg_2 = pca_fg$PC2,
+                           PC_fg_3 = pca_fg$PC3)
+}
+
 #Numeric confounder histograms -> for checking normality
 {
   hist(anthro_data$age) #Not normal-looking
   
   hist(anthro_data$bmi) #Gaussian-like
+  
+  hist(anthro_data$body_fat) #Gaussian-like
   
   hist(anthro_data$systolic_bp) #Gaussian-like
   
@@ -67,6 +92,18 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
   hist(anthro_data$hsCRP) #Highly affected by outliers
   antrho_data_no_hscrp_out = anthro_data[anthro_data$hsCRP < 4,]
   hist(antrho_data_no_hscrp_out$hsCRP) #Not normal-looking
+  
+  hist(nutrients_pca_data$PC_nutri_1) #Gaussian-like
+  hist(nutrients_pca_data$PC_nutri_2) #Gaussian-like
+  hist(nutrients_pca_data$PC_nutri_3) #Seems affected by outliers
+  nutrients_pca_data_no_out = nutrients_pca_data[nutrients_pca_data$PC_nutri_3<5, ]
+  hist(nutrients_pca_data_no_out$PC_nutri_3) #Gaussian-like
+  
+  hist(fg_pca_data$PC_fg_1) #Gaussian-like (barely, not so much)
+  hist(fg_pca_data$PC_fg_2) #Seems affected by otuliers
+  fg_pca_no_out = fg_pca_data[fg_pca_data$PC_fg_2 > (0-5),]
+  hist(fg_pca_no_out$PC_fg_2) #Gaussian-like
+  hist(fg_pca_data$PC_fg_3) #Gaussiasn-like
 }
 
 #Normalization of non-gaussian-looking confounders
@@ -109,3 +146,5 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
 {
   
 }
+
+

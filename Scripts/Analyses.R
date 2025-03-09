@@ -141,6 +141,7 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
     hsCRP = anthro_data$hsCRP
   )
   
+  
   food_related_confounders = inner_join(nutrients_pca_data, fg_pca_data, by = "ID")
 }
 
@@ -179,6 +180,9 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
 {
   cm_1 = inner_join(anthro_confounders, food_related_confounders, by ="ID")
   cm_1 = inner_join(cm_1, otu_relative_abundances, by = "ID")
+  
+  #We remove MI_354_H because it has a NA in systolic_bp
+  cm_1 <- cm_1[!(cm_1$ID %in% c("MI_354_H")),]
   cm_1 = as.data.frame(cm_1[,-1])
   mc_1 <- pc(suffStat = cm_1, indepTest = mixCItest, alpha = 0.01,
                       labels = colnames(cm_1), u2pd="relaxed",

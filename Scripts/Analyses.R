@@ -1,10 +1,10 @@
 
-#Package installation
-if (!require("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
-BiocManager::install("graph")
-BiocManager::install("RBGL")
-BiocManager::install("Rgraphviz")
+#Package installation (some packages that cant be installed with install.pacakges())
+#if (!require("BiocManager", quietly = TRUE))
+#  install.packages("BiocManager")
+#BiocManager::install("graph")
+#BiocManager::install("RBGL")
+#BiocManager::install("Rgraphviz")
 
 #Packages
 library(pcalg)
@@ -120,6 +120,30 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
   city_CLI = ifelse(anthro_data$city=="Cali", 1, 0)
 }
 
+#Creation of confounding variables matrix (not food or nutrients)
+{
+  anthro_confounders <- data.frame(
+    ID = anthro_data$ID,
+    sex_yes = sex_yes,
+    city_BAR = city_BAR,
+    city_MED = city_MED,
+    city_BGA = city_BGA,
+    city_CLI = city_CLI,
+    age = anthro_data$age,
+    bmi = anthro_data$bmi,
+    body_fat = anthro_data$body_fat,
+    systolic_bp = anthro_data$systolic_bp,
+    diastolic_bp = anthro_data$diastolic_bp,
+    triglycerides = anthro_data$triglycerides,
+    HDL = anthro_data$HDL,
+    glucose = anthro_data$glucose,
+    HOMA_IR = anthro_data$HOMA_IR,
+    hsCRP = anthro_data$hsCRP
+  )
+  
+  food_related_confounders = inner_join(nutrients_pca_data, fg_pca_data, by = "ID")
+}
+
 #Identification of 0 observation OTUs
 {
   #OTU observation count
@@ -142,9 +166,21 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
 
 }
 
-#OTU transformations -> Relative abundances + log transform
+#OTU transformations -> Relative abundances 
 {
+  #Relative abundance
+  otu_no_ids = observed_otus[,-1]
+  
+  otu_relative_abundances = cbind(observed_otus[,1], otu_no_ids / rowSums(otu_no_ids))
   
 }
 
-
+#Causal model 1
+{
+  cm_1 = inner_join(anthro_confounders, food_related_confounders, by ="ID")
+  cm_1 = inner_join(cm_1, otu_relative_abundances, by = "ID")
+  cm_1 = as.data.frame(cm_1[,-1])
+  mc_1 <- pc(suffStat = cm_1, indepTest = mixCItest, alpha = 0.01,
+                      labels = colnames(cm_1), u2pd="relaxed",
+                      skel.method = "stable.fast", maj.rule = TRUE, solve.confl = TRUE)
+}

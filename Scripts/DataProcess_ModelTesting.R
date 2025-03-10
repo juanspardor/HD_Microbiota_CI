@@ -342,9 +342,9 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
     start_time = proc.time()
     
     mc1V2.fit = pc(suffStat = mc1, indepTest = mixCItest, alpha = 0.01,
-                 labels = colnames(mc1), skel.method = "stable.fast",
-                 numCores = 5, u2pd = "relaxed",
-                 maj.rule = TRUE, solve.confl = TRUE)
+                   labels = colnames(mc1), skel.method = "stable.fast",
+                   numCores = 5, u2pd = "relaxed",
+                   maj.rule = TRUE, solve.confl = FALSE)
     
     end_time = proc.time()
     print("mc1V2 fit time:")
@@ -371,9 +371,9 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
     start_time = proc.time()
     
     mc2V2.fit = pc(suffStat = mc2, indepTest = mixCItest, alpha = 0.01,
-                 labels = colnames(mc2), skel.method = "stable.fast",
-                 numCores = 5, u2pd = "relaxed",
-                 maj.rule = TRUE, solve.confl = TRUE)
+                   labels = colnames(mc2), skel.method = "stable.fast",
+                   numCores = 5, u2pd = "relaxed",
+                   maj.rule = TRUE, solve.confl = FALSE)
     
     end_time = proc.time()
     print("mc2V2 fit time:")
@@ -398,9 +398,9 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
     start_time = proc.time()
     
     mc3V2.fit = pc(suffStat = mc3, indepTest = mixCItest, alpha = 0.01,
-                 labels = colnames(mc3), skel.method = "stable.fast",
-                 numCores = 5, u2pd = "relaxed",
-                 maj.rule = TRUE, solve.confl = TRUE)
+                   labels = colnames(mc3), skel.method = "stable.fast",
+                   numCores = 5, u2pd = "relaxed",
+                   maj.rule = TRUE, solve.confl = FALSE)
     
     end_time = proc.time()
     print("mc3V2 fit time:")
@@ -425,9 +425,9 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
     start_time = proc.time()
     
     mc4V2.fit = pc(suffStat = mc4, indepTest = mixCItest, alpha = 0.01,
-                 labels = colnames(mc4), skel.method = "stable.fast",
-                 numCores = 5, u2pd = "relaxed",
-                 maj.rule = TRUE, solve.confl = TRUE)
+                   labels = colnames(mc4), skel.method = "stable.fast",
+                   numCores = 5, u2pd = "relaxed",
+                   maj.rule = TRUE, solve.confl = FALSE)
     
     end_time = proc.time()
     print("mc4V2 fit time:")
@@ -452,8 +452,9 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
     start_time = proc.time()
     
     mc5V2.fit = pc(suffStat = mc5, indepTest = mixCItest, alpha = 0.01,
-                 labels = colnames(mc5), skel.method = "stable.fast",
-                 numCores = 5)
+                   labels = colnames(mc5), skel.method = "stable.fast",
+                   numCores = 5, u2pd = "relaxed",
+                   maj.rule = TRUE, solve.confl = FALSE)
     
     end_time = proc.time()
     print("mc5V2 fit time:")
@@ -462,6 +463,144 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
     #Estimation of Causal effect of arbitrary OTU over BMI -> local reduce computation
     mc5V2.causalEffect = ida(678, 7, cov(mc5), mc5V2.fit@graph, method = "local")
     mc5V2.causalEffect
+    
+    #Verification if graph is a valid cpdag
+    #mc5.adjMatrix = as(mc5.fit@graph, "matrix")
+    #isValidGraph(mc5.adjMatrix, type ="cpdag", verbose = TRUE)
+  }
+}
+
+#Option 3: LMPC-Stable
+{
+  #Causal model 1: 30 variables -> 9 OTUs
+  {
+    #Matrix
+    mc1 = complete_data[,c(1:30)]
+    
+    #Causal discovery and time to compute
+    start_time = proc.time()
+    
+    mc1V3.fit = pc(suffStat = mc1, indepTest = mixCItest, alpha = 0.01,
+                 labels = colnames(mc1), skel.method = "stable.fast",
+                 numCores = 5, u2pd = "relaxed",
+                 maj.rule = TRUE, solve.confl = TRUE)
+    
+    end_time = proc.time()
+    print("mc1V3 fit time:")
+    (end_time - start_time)
+    
+    #Estimation of Causal effect of arbitrary OTU over BMI -> local reduce computation
+    mc1V3.causalEffect = ida(29, 7, cov(mc1), mc1V3.fit@graph, method = "local")
+    mc1V3.causalEffect
+    
+    #Verification if graph is a valid cpdag
+    #mc1.adjMatrix = as(mc1.fit@graph, "matrix")
+    #isValidGraph(mc1.adjMatrix, type ="cpdag", verbose = TRUE)
+    
+    #Plot
+    #plot(mc1.fit@graph, main ="MC1 Fit")
+  }
+  
+  #Causal model 2: 150 variables
+  {
+    #Matrix
+    mc2 = complete_data[,c(1:150)]
+    
+    #Causal discovery and time to compute
+    start_time = proc.time()
+    
+    mc2V3.fit = pc(suffStat = mc2, indepTest = mixCItest, alpha = 0.01,
+                 labels = colnames(mc2), skel.method = "stable.fast",
+                 numCores = 5, u2pd = "relaxed",
+                 maj.rule = TRUE, solve.confl = TRUE)
+    
+    end_time = proc.time()
+    print("mc2V3 fit time:")
+    (end_time - start_time)
+    
+    #Estimation of Causal effect of arbitrary OTU over BMI -> local reduce computation
+    mc2V3.causalEffect = ida(115, 7, cov(mc2), mc2V3.fit@graph, method = "local")
+    mc2V3.causalEffect
+    
+    #Verification if graph is a valid cpdag
+    #mc2.adjMatrix = as(mc2.fit@graph, "matrix")
+    #isValidGraph(mc2.adjMatrix, type ="cpdag", verbose = TRUE)
+    
+  }
+  
+  #Causal model 3: 500 variables
+  {
+    #Matrix
+    mc3 = complete_data[,c(1:500)]
+    
+    #Causal discovery and time to compute
+    start_time = proc.time()
+    
+    mc3V3.fit = pc(suffStat = mc3, indepTest = mixCItest, alpha = 0.01,
+                 labels = colnames(mc3), skel.method = "stable.fast",
+                 numCores = 5, u2pd = "relaxed",
+                 maj.rule = TRUE, solve.confl = TRUE)
+    
+    end_time = proc.time()
+    print("mc3V3 fit time:")
+    (end_time - start_time)
+    
+    #Estimation of Causal effect of arbitrary OTU over BMI -> local reduce computation
+    mc3V3.causalEffect = ida(359, 7, cov(mc3), mc3V3.fit@graph, method = "local")
+    mc3V3.causalEffect
+    
+    #Verification if graph is a valid cpdag
+    #mc3.adjMatrix = as(mc3.fit@graph, "matrix")
+    #isValidGraph(mc3.adjMatrix, type ="cpdag", verbose = TRUE)
+    
+  }
+  
+  #Causal model 4: 1000 variables
+  {
+    #Matrix
+    mc4 = complete_data[,c(1:1000)]
+    
+    #Causal discovery and time to compute
+    start_time = proc.time()
+    
+    mc4V3.fit = pc(suffStat = mc4, indepTest = mixCItest, alpha = 0.01,
+                 labels = colnames(mc4), skel.method = "stable.fast",
+                 numCores = 5, u2pd = "relaxed",
+                 maj.rule = TRUE, solve.confl = TRUE)
+    
+    end_time = proc.time()
+    print("mc4V3 fit time:")
+    (end_time - start_time)
+    
+    #Estimation of Causal effect of arbitrary OTU over BMI -> local reduce computation
+    mc4V3.causalEffect = ida(678, 7, cov(mc4), mc4V3.fit@graph, method = "local")
+    mc4V3.causalEffect
+    
+    #Verification if graph is a valid cpdag
+    #mc4.adjMatrix = as(mc4.fit@graph, "matrix")
+    #isValidGraph(mc4.adjMatrix, type ="cpdag", verbose = TRUE)
+    
+  }
+  
+  #Causal model 5: All variables
+  {
+    #Matrix
+    mc5 = complete_data
+    
+    #Causal discovery and time to compute
+    start_time = proc.time()
+    
+    mc5V3.fit = pc(suffStat = mc5, indepTest = mixCItest, alpha = 0.01,
+                 labels = colnames(mc5), skel.method = "stable.fast",
+                 numCores = 5)
+    
+    end_time = proc.time()
+    print("mc5V3 fit time:")
+    (end_time - start_time)
+    
+    #Estimation of Causal effect of arbitrary OTU over BMI -> local reduce computation
+    mc5V3.causalEffect = ida(678, 7, cov(mc5), mc5V3.fit@graph, method = "local")
+    mc5V3.causalEffect
     
     #Verification if graph is a valid cpdag
     #mc5.adjMatrix = as(mc5.fit@graph, "matrix")

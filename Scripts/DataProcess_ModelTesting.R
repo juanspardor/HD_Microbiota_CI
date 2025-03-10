@@ -32,8 +32,8 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
   
   #Nutrient data
   nutrients_data = read_delim("./Data/Consolidated/nutrients_data.txt", 
-                                              delim = "\t", escape_double = FALSE, 
-                                              trim_ws = TRUE)
+                              delim = "\t", escape_double = FALSE, 
+                              trim_ws = TRUE)
   unwanted_columns_nut = c("Codalt")
   nutrients_data = nutrients_data[, !names(nutrients_data) %in% unwanted_columns_nut]
   
@@ -90,7 +90,7 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
   hist(anthro_data_no_out$HOMA_IR) #Gaussian-like (not really)
   
   hist(anthro_data$hsCRP) #Highly affected by outliers
-  antrho_data_no_hscrp_out = anthro_data[anthro_data$hsCRP < 4,]
+  antrho_data_no_hscrp_out = anthro_data[anthro_data$hsCRP < 3,]
   hist(antrho_data_no_hscrp_out$hsCRP) #Not normal-looking
   
   hist(nutrients_pca_data$PC_nutri_1) #Gaussian-like
@@ -108,7 +108,10 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
 
 #Normalization of non-gaussian-looking confounders
 {
-  
+  anthro_data$age = scale(anthro_data$age)
+  anthro_data$triglycerides = scale(anthro_data$triglycerides)
+  anthro_data$glucose = scale(anthro_data$glucose)
+  anthro_data$hsCRP = scale(anthro_data$hsCRP)
 }
 
 #Creation of dummy variables
@@ -120,7 +123,7 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
   city_CLI = ifelse(anthro_data$city=="Cali", 1, 0)
 }
 
-#Creation of confounding variables matrix (not food or nutrients)
+#Creation of confounding variables matrices: Anthro confounders, food-related confounders
 {
   anthro_confounders <- data.frame(
     ID = anthro_data$ID,
@@ -141,17 +144,16 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
     hsCRP = anthro_data$hsCRP
   )
   
-  
   food_related_confounders = inner_join(nutrients_pca_data, fg_pca_data, by = "ID")
 }
 
-#Identification of 0 observation OTUs
+#Identification of low observation OTUs
 {
   #OTU observation count
   total_otu_observation_counts = colSums(otu_data[,-1])
   
-  #OTUs with no observations
-  zero_observation_otus = which(total_otu_observation_counts == 0)
+  #OTUs with at most 1 observation
+  zero_observation_otus = which(total_otu_observation_counts < 2)
   length(zero_observation_otus) #There are 18 OTUs with no observations -> we dont need to use them
   zero_observation_otus
   
@@ -161,10 +163,13 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
   #Select only OTUs with observations
   observed_otus= otu_data[,-zero_observation_otus]
   
-  #Sanity check
+  #Sanity checks
   observed_OTU_test = colSums(observed_otus[,-1])
-  length(which(observed_OTU_test == 0) == 0) == 0
-
+  length(which(observed_OTU_test == 0)) == 0
+  
+  observed_OTU_test = colSums(observed_otus[,-1])
+  length(which(observed_OTU_test == 1)) == 0
+  
 }
 
 #OTU transformations -> Relative abundances 
@@ -172,19 +177,131 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
   #Relative abundance
   otu_no_ids = observed_otus[,-1]
   
-  otu_relative_abundances = cbind(observed_otus[,1], otu_no_ids / rowSums(otu_no_ids))
+  abundances = otu_no_ids / rowSums(otu_no_ids) * 100
+  otu_relative_abundances = cbind(observed_otus[,1], abundances)
+}
+
+#Creation of complete data matrix
+{
+  #Join all data
+  complete_data_confounders = inner_join(anthro_confounders, food_related_confounders, by ="ID")
+  complete_data = inner_join(complete_data_confounders, otu_relative_abundances, by = "ID")
+  
+  #Since we're working with Systolic BP, we remove MI_354_H because it has NA
+  complete_data = complete_data[!(complete_data$ID %in% c("MI_354_H")),]
+  
+  #Remove ID Column
+  complete_data = as.data.frame(complete_data[,-1])
   
 }
 
-#Causal model 1
+#Causal Model Testing: Gradually increase p to see increase in computation time
+
+#Causal model 1: 30 variables -> 9 OTUs (0.136s)
 {
-  cm_1 = inner_join(anthro_confounders, food_related_confounders, by ="ID")
-  cm_1 = inner_join(cm_1, otu_relative_abundances, by = "ID")
+  #Matrix
+  mc1 = complete_data[,c(1:30)]
   
-  #We remove MI_354_H because it has a NA in systolic_bp
-  cm_1 <- cm_1[!(cm_1$ID %in% c("MI_354_H")),]
-  cm_1 = as.data.frame(cm_1[,-1])
-  mc_1 <- pc(suffStat = cm_1, indepTest = mixCItest, alpha = 0.01,
-                      labels = colnames(cm_1), u2pd="relaxed",
-                      skel.method = "stable.fast", maj.rule = TRUE, solve.confl = TRUE)
+  #Causal discovery and time to compute
+  start_time = proc.time()
+  
+  mc1.fit = pc(suffStat = mc1, indepTest = mixCItest, alpha = 0.01,
+               labels = colnames(mc1), skel.method = "stable.fast",
+               numCores = 5)
+  
+  end_time = proc.time()
+  print("mc1 fit time:")
+  (end_time - start_time)
+  
+  #Estimation of Causal effect of arbitrary OTU over BMI -> local reduce computation
+  mc1.causalEffect = ida(29, 7, cov(mc1), mc1.fit@graph, method = "local")
+  mc1.causalEffect
+  
+  #Verification if graph is a valid cpdag
+  mc1.adjMatrix = as(mc1.fit@graph, "matrix")
+  isValidGraph(mc1.adjMatrix, type ="cpdag", verbose = TRUE)
+  
+  #Plot
+  plot(mc1.fit@graph, main ="MC1 Fit")
 }
+
+#Causal model 2: 150 variables (2.6s)
+{
+  #Matrix
+  mc2 = complete_data[,c(1:150)]
+  
+  #Causal discovery and time to compute
+  start_time = proc.time()
+  
+  mc2.fit = pc(suffStat = mc2, indepTest = mixCItest, alpha = 0.01,
+               labels = colnames(mc2), skel.method = "stable.fast",
+               numCores = 5)
+  
+  end_time = proc.time()
+  print("mc2 fit time:")
+  (end_time - start_time)
+  
+  #Estimation of Causal effect of arbitrary OTU over BMI -> local reduce computation
+  mc2.causalEffect = ida(115, 7, cov(mc2), mc2.fit@graph, method = "local")
+  mc2.causalEffect
+  
+  #Verification if graph is a valid cpdag
+  mc2.adjMatrix = as(mc2.fit@graph, "matrix")
+  isValidGraph(mc2.adjMatrix, type ="cpdag", verbose = TRUE)
+  
+}
+
+#Causal model 3: 500 variables (46.276s)
+{
+  #Matrix
+  mc3 = complete_data[,c(1:500)]
+  
+  #Causal discovery and time to compute
+  start_time = proc.time()
+  
+  mc3.fit = pc(suffStat = mc3, indepTest = mixCItest, alpha = 0.01,
+               labels = colnames(mc3), skel.method = "stable.fast",
+               numCores = 5)
+  
+  end_time = proc.time()
+  print("mc3 fit time:")
+  (end_time - start_time)
+  
+  #Estimation of Causal effect of arbitrary OTU over BMI -> local reduce computation
+  mc3.causalEffect = ida(359, 7, cov(mc3), mc3.fit@graph, method = "local")
+  mc3.causalEffect
+  
+  #Verification if graph is a valid cpdag
+  mc3.adjMatrix = as(mc3.fit@graph, "matrix")
+  isValidGraph(mc3.adjMatrix, type ="cpdag", verbose = TRUE)
+  
+}
+
+#Causal model 4: 100 variables (205.193s)
+{
+  #Matrix
+  mc4 = complete_data[,c(1:1000)]
+  
+  #Causal discovery and time to compute
+  start_time = proc.time()
+  
+  mc4.fit = pc(suffStat = mc4, indepTest = mixCItest, alpha = 0.01,
+               labels = colnames(mc4), skel.method = "stable.fast",
+               numCores = 5)
+  
+  end_time = proc.time()
+  print("mc4 fit time:")
+  (end_time - start_time)
+  
+  #Estimation of Causal effect of arbitrary OTU over BMI -> local reduce computation
+  mc4.causalEffect = ida(678, 7, cov(mc4), mc4.fit@graph, method = "local")
+  mc4.causalEffect
+  
+  #Verification if graph is a valid cpdag
+  mc4.adjMatrix = as(mc4.fit@graph, "matrix")
+  isValidGraph(mc4.adjMatrix, type ="cpdag", verbose = TRUE)
+  
+}
+
+
+

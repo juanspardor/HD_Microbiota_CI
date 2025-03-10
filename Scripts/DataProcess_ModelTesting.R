@@ -16,7 +16,7 @@ library(tibble)
 library(dplyr)
 
 #Directory
-setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
+setwd("XXX")
 
 #Data Reading
 {
@@ -277,7 +277,7 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
   
 }
 
-#Causal model 4: 100 variables (205.193s)
+#Causal model 4: 1000 variables (205.193s)
 {
   #Matrix
   mc4 = complete_data[,c(1:1000)]
@@ -303,5 +303,30 @@ setwd("/Users/juanse/Documents/Tesis/IIND/HD_Microbiota_CI")
   
 }
 
+#Causal model 5: All variables
+{
+  #Matrix
+  mc5 = complete_data
+  
+  #Causal discovery and time to compute
+  start_time = proc.time()
+  
+  mc4.fit = pc(suffStat = mc5, indepTest = mixCItest, alpha = 0.01,
+               labels = colnames(mc5), skel.method = "stable.fast",
+               numCores = 5)
+  
+  end_time = proc.time()
+  print("mc5 fit time:")
+  (end_time - start_time)
+  
+  #Estimation of Causal effect of arbitrary OTU over BMI -> local reduce computation
+  mc5.causalEffect = ida(678, 7, cov(mc5), mc5.fit@graph, method = "local")
+  mc5.causalEffect
+  
+  #Verification if graph is a valid cpdag
+  mc5.adjMatrix = as(mc5.fit@graph, "matrix")
+  isValidGraph(mc5.adjMatrix, type ="cpdag", verbose = TRUE)
+  
+}
 
 
